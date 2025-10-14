@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Type With Vibe Typing Test</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom font */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom scrollbar hiding for the text display */
+        .scrollbar-hide {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;  /* Chrome, Safari, Opera */
+        }
+        
+        /* Cursor Styling */
+        .current-char {
+            border-left: 2px solid; /* Cursor effect: color set dynamically */
+            padding-left: 2px;
+            animation: blink 1s step-start 0s infinite;
+        }
+        /* Ensures the cursor is the correct height/position */
+        .char-span {
+            display: inline-block; 
+            white-space: pre; /* Essential to show spaces */
+        }
+
+        @keyframes blink {
+            50% { border-color: transparent; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Main application container -->
+    <div id="app">
+        <!-- Content will be injected here by JavaScript -->
+    </div>
+
+    <script>
+        // --- CRITICAL ENVIRONMENT SETUP (MOCKED) ---
+        const __firebase_config = JSON.stringify({ apiKey: "MOCKED-API-KEY", authDomain: "mock.firebaseapp.com", projectId: "mock-id", storageBucket: "mock.appspot.com", messagingSenderId: "123456789", appId: "1:123456789:web:abcdef" });
+        const __app_id = 'local-type-vibe';
+        const __initial_auth_token = null; 
+        const MOCK_USER_ID = 'local-user-id-' + Math.random().toString(36).substring(2, 9);
+        console.warn("MOCKED GLOBALS DEFINED: Firestore is disabled for local testing.");
+
+        // --- THEME DEFINITIONS (Updated with minimal colors) ---
+        const themes = {
+            dark: { name: 'Dark Vibe', bg: 'bg-gray-900', card: 'bg-gray-800', primary: 'text-teal-400', secondary: 'text-gray-400', accentBg: 'bg-teal-500', accentText: 'text-gray-900', border: 'border-teal-500/80', correct: 'text-green-400', error: 'text-red-400 bg-red-800/70', cursor: '#38bdae' },
+            light: { name: 'Light Vibe', bg: 'bg-gray-50', card: 'bg-white', primary: 'text-indigo-600', secondary: 'text-gray-600', accentBg: 'bg-indigo-600', accentText: 'text-white', border: 'border-indigo-600/80', correct: 'text-green-600', error: 'text-red-600 bg-red-200/70', cursor: '#4f46e5' },
+            terminal: { name: 'Terminal Green', bg: 'bg-black', card: 'bg-gray-900', primary: 'text-lime-400', secondary: 'text-lime-200', accentBg: 'bg-lime-500', accentText: 'text-gray-900', border: 'border-lime-500/80', correct: 'text-lime-400', error: 'text-red-400 bg-red-900/50', cursor: '#a7f3d0' },
+            ocean: { name: 'Ocean Blue', bg: 'bg-blue-900', card: 'bg-blue-800', primary: 'text-cyan-300', secondary: 'text-cyan-200', accentBg: 'bg-cyan-400', accentText: 'text-blue-900', border: 'border-cyan-400/80', correct: 'text-green-300', error: 'text-red-300 bg-red-700/70', cursor: '#67e8f9' },
+            // NEW Minimal Themes
+            cream: { name: 'Cream Dream', bg: 'bg-stone-100', card: 'bg-white', primary: 'text-amber-800', secondary: 'text-stone-500', accentBg: 'bg-amber-600', accentText: 'text-white', border: 'border-amber-600/80', correct: 'text-green-700', error: 'text-red-700 bg-red-200/70', cursor: '#b45309' },
+            buttercup: { name: 'Buttercup Yellow', bg: 'bg-yellow-50', card: 'bg-white', primary: 'text-yellow-700', secondary: 'text-stone-600', accentBg: 'bg-yellow-600', accentText: 'text-stone-900', border: 'border-yellow-600/80', correct: 'text-lime-700', error: 'text-red-700 bg-red-200/70', cursor: '#ca8a04' }
+        };
+
+        // --- APPLICATION STATE ---
+        const state = {
+            currentView: 'select', // 'select', 'stage_select', 'typing', 'settings'
+            userId: MOCK_USER_ID,
+            currentTheme: 'dark', 
+            selectedLevel: null,
+            selectedStage: null, 
+            
+            // Typing Test State
+            targetText: '',
+            typedText: '',
+            startTime: null,
+            endTime: null,
+            status: 'ready', // 'ready', 'typing', 'finished'
+        };
+
+        // --- TEXT CONTENT (Simplified for brevity, full content is still available) ---
+        const levelTexts = {
+            beginner: {
+                title: "Beginner Vibe",
+                description: "Focus on individual keys, short words, two-letter combinations, and basic punctuation to build core muscle memory.",
+                stages: [
+                    { id: 1, name: "Home Row F & J", text: "f j f j f j f j j f j f f j j f f j j j f f j j j f f" },
+                    { id: 2, name: "Home Row D & K", text: "d k d k d k d k k d k d d k k d d k k k d d k k k d d" },
+                    { id: 3, name: "Home Row A & S", text: "a s a s a s a s s a s a a s s a a s s s a a s s s a a" },
+                    { id: 4, name: "Home Row L & ;", text: "l ; l ; l ; l ; ; l ; l l ; ; l l ; ; ; l l ; ; ; l l" },
+                    { id: 5, name: "All Home Row Keys", text: "a s d f j k l ; a s d f ; l k j a s d f l k j ; d k f j" },
+                    { id: 6, name: "Top Row Q & P", text: "q p q p q p p q p q q p p q q p p p q q p p p q q" },
+                    { id: 7, name: "Top Row W & O", text: "w o w o w o w o o w o w w o o w w o o o w w o o o w w" },
+                    { id: 8, name: "Top Row E & I", text: "e i e i e i e i i e i e e i i e e i i i e e i i i e e" },
+                    { id: 9, name: "Top Row R & U", text: "r u r u r u r u u r u r r u u r r u u u r r u u u r r" },
+                    { id: 10, name: "Top Row T & Y", text: "t y t y t y t y y t y t t y y t t y y y t t y y y t t" },
+                    { id: 11, name: "All Top Row Keys", text: "q w e r t y u i o p p o i u y t r e w q q w e r t y" },
+                    { id: 12, name: "Bottom Row Z & M", text: "z m z m z m z m m z m z z m m z z m m m z z m m m z z" },
+                    { id: 13, name: "Bottom Row X & N", text: "x n x n x n x n n x n x x n n x x n n n x x n n n x x" },
+                    { id: 14, name: "Bottom Row C & B", text: "c b c b c b c b b c b c c b b c c b b b c c b b b c c" },
+                    { id: 15, name: "All Bottom Row Keys", text: "z x c v b n m , . / / . , m n b v c x z z x c v b n m" },
+                    { id: 16, name: "Simple Words I", text: "the and for get run put sat mat cat ten one two six" },
+                    { id: 17, name: "Simple Words II", text: "blue red green pink grey gold warm cold fast slow quick" },
+                    { id: 18, name: "Shift Key Practice I", text: "A S D F J K L ; A s d f j k l ; S a d f J k l ;" },
+                    { id: 19, name: "Shift Key Practice II", text: "The Cat ran fast. The Dog ate the food. We left town." },
+                    { id: 20, name: "Mixed Punctuation I", text: "I read a book, and it was good. Do you like it? Yes, I do!" },
+                    { id: 21, name: "Numbers 1-5 Drill", text: "1 2 3 4 5 12 34 51 23 45 54 32 10 50 20 40 30 11 22 33 44 55" },
+                    { id: 22, name: "Numbers 6-0 Drill", text: "6 7 8 9 0 67 89 06 78 90 09 87 60 90 70 80 66 77 88 99 00" },
+                    { id: 23, name: "Simple Sentence I", text: "A quick brown fox jumps over the lazy dog." },
+                    { id: 24, name: "Simple Sentence II", text: "The sun was bright and warm in the sky above the large blue lake." },
+                    { id: 25, name: "Simple Sentence III", text: "It is important to remember what you must do when the day starts." },
+                    { id: 26, name: "Simple Sentence IV", text: "She bought a new dress for the party last night and looked amazing." },
+                    { id: 27, name: "Simple Sentence V", text: "We decided to walk to the park and play for an hour before going home." },
+                    { id: 28, name: "QWERTY Sequence", text: "q w e r t y u i o p a s d f g h j k l z x c v b n m" },
+                    { id: 29, name: "Common Bigrams I", text: "th at in is it on he by we or an no up go me so if" },
+                    { id: 30, name: "Simple Paragraph I", text: "The old man sat down by the river and watched the water flow by. He felt peace in the quiet moments of the afternoon." },
+                    { id: 31, name: "Simple Paragraph II", text: "Learning to type well takes time and lots of good practice. Focus on hitting the keys softly and getting the correct letter." },
+                    { id: 32, name: "The Letter E Drill", text: "e e e t h e e r e w e r e t y t h i s i s a t e s t" },
+                    { id: 33, name: "The Letter T Drill", text: "t t t h e t e s t w i t h a l o t o f t t t h e e t" },
+                    { id: 34, name: "Punctuation Practice II", text: "Hello! Where are you going? I'm going home. Ok." },
+                    { id: 35, name: "Capitals and Periods", text: "This is a sentence. So is this one. How about this? Yes." },
+                    { id: 36, name: "Simple Adjectives I", text: "nice great small big good bad happy sad funny boring" },
+                    { id: 37, name: "Simple Adjectives II", text: "quick slow bright dark clear cloudy simple hard easy soft" },
+                    { id: 38, name: "Short Phrases I", text: "walk the dog, read a book, eat a meal, play the game, go to work" },
+                    { id: 39, name: "Short Phrases II", text: "take the bus, run outside, find the key, make the call, buy the milk" },
+                    { id: 40, name: "Vowels Drill", text: "a e i o u a e i o u u o i e a a e i o u i o u e a" },
+                    { id: 41, name: "Consonants Drill", text: "b c d f g h j k l m n p q r s t v w x y z b c d f g" },
+                    { id: 42, name: "Repeated Words I", text: "is is for for the the and and but but was was were were" },
+                    { id: 43, name: "Common Trigrams I", text: "the and ing ion all ate ere men ent one out upi" },
+                    { id: 44, name: "Numbers and Spaces", text: "1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0" },
+                    { id: 45, name: "Simple Q&A", text: "Did you finish? Yes, I did. Are you ready? Not yet, almost." },
+                    { id: 46, name: "Practice with 'that'", text: "I know that you think that is true. That is what I heard that day." },
+                    { id: 47, name: "Practice with 'with'", text: "Can you come with me? We will go with the team. I'm with them." },
+                    { id: 48, name: "Common Words Drill", text: "would could should only always never often sometimes few many" },
+                    { id: 49, name: "Longer Beginner Sentence", text: "Please make sure to always use the correct finger for each key on the keyboard." },
+                    { id: 50, name: "Final Beginner Test", text: "We took a train to the city last week, and it was a fun trip. It's important to remember to use your shift key for capital letters, and always check your work." },
+                ]
+            },
+            mid: {
+                title: "Mid Vibe",
+                description: "Focus on speed, complex punctuation, mixed capitalization, numbers, and longer, technical prose for fluent typing.",
+                stages: [
+                    { id: 51, name: "Financial Data Entry", text: "Account No.: 987654321. Debit: $5,240.75. Credit: $1,990.25. Balance: $3,250.50." },
+                    { id: 52, name: "Scientific Notation", text: "The speed of light is $2.99792458 \times 10^8$ meters per second. The mass was $4.55 \times 10^{-19}$ kg." },
+                    { id: 53, name: "Email Address Structure", text: "Please contact support@example.com, cc: info.team@co.net, and bcc: admin-alerts@private.org." },
+                    { id: 54, name: "URL Path Structure", text: "Visit https://www.project-vibe.com/docs/api/v2/users?status=active&limit=10." },
+                    { id: 55, name: "Common Symbols I", text: "We need ( & % # @ ) and also [ ; : ] for the new project." },
+                    { id: 56, name: "Complex Punctuation I", text: "However, the primary question remains: 'Where should we allocate the remaining funds?'" },
+                    { id: 57, name: "Quotation Marks Drill", text: "He said, \"It's raining outside,\" and then she replied, \"I know!\"" },
+                    { id: 58, name: "Parentheses and Brackets", text: "The primary findings (see Figure 3 [page 45]) were conclusive and required immediate action." },
+                    { id: 59, name: "Mixed Case Challenge I", text: "The CEO, Mr. A. B. Smith, announced the Q3 results on Tuesday, Oct. 15th at the quarterly conference." },
+                    { id: 60, name: "Mixed Case Challenge II", text: "NASA's Artemis Program aims to return HUmanS to the MOON, building on the Apollo LEGaCY." },
+                    { id: 61, name: "Dialogue Practice", text: "\"Are you certain?\" she asked. \"Absolutely, positive,\" he confirmed. \"Let's proceed!\"" },
+                    { id: 62, name: "Technical Procedure", text: "First, initialize the system; second, check the connections; and third, execute the primary diagnostic sequence of the machine." },
+                    { id: 63, name: "Hyphens and Dashes", text: "A high-quality, up-to-date manual is essential for this post-production, end-to-end testing phase." },
+                    { id: 64, name: "Statistical Prose I", text: "The median response time was $4.7$ seconds $(\pm 0.9$ seconds, $p < 0.05)$, showing significant improvement over the baseline." },
+                    { id: 65, name: "Long Technical Words", text: "Heterogeneous, infrastructure, synchronization, computational, interoperability, asynchronous, prioritization." },
+                    { id: 66, name: "Number Sets I", text: "10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 1000, 2000, 5000." },
+                    { id: 67, name: "Number Sets II", text: "45.78, 123.01, 0.99, 1001.55, 3.14159, 2.71828, 9.80665." },
+                    { id: 68, name: "Percent and Currency", text: "A $25\%$ discount applies to orders over $£150$. The tax rate is $7.25\%$ in this region." },
+                    { id: 69, name: "Colons and Semicolons", text: "The process involves three steps: planning, execution, and review; each phase is crucial." },
+                    { id: 70, name: "Review of All Symbols", text: "` ~ ! @ # $ % ^ & * ( ) _ + | \\ { } [ ] : ; \" ' < > , . ? /" },
+                    { id: 71, name: "Prose with Numbers I", text: "We verified $12$ key components and discovered $3$ critical failures in tests $5$ and $6$." },
+                    { id: 72, name: "Prose with Numbers II", text: "The project budget increased by $17.5\%$ to a total of $\$4.3$ million by the end of Q$2$." },
+                    { id: 73, name: "Formal Letter Snippet", text: "Dear Mr. Johnson, Pursuant to our conversation on Tuesday, October 10, 2023, please find the enclosed documentation." },
+                    { id: 74, name: "Historical Context", text: "World War II (1939-1945) dramatically reshaped global politics and led to the formation of the U.N. (United Nations)." },
+                    { id: 75, name: "Long Paragraph I", text: "Although the recent market fluctuations have caused some concern among investors, analysts predict a strong recovery in the third quarter due to unexpected increases in consumer spending and technological adaptation." },
+                    { id: 76, name: "Philosophical Quote I", text: "The only true wisdom is in knowing you know nothing. - Socrates." },
+                    { id: 77, name: "Legal Terminology", text: "The defendant was found liable for negligence in the case, resulting in a mandatory settlement of all outstanding claims." },
+                    { id: 78, name: "Environmental Prose", text: "Climate change presents an existential threat; however, renewable energy sources offer a viable, long-term solution to reduce global emissions." },
+                    { id: 79, name: "Technical Abstract", text: "This paper describes a novel machine learning architecture for real-time processing of high-dimensional spatiotemporal data sets using convolutional neural networks." },
+                    { id: 80, name: "Numbers and Symbols II", text: "The discount code is SAVE20%OFF; apply it at checkout before 11:59 PM EST on 01/01/2024." },
+                    { id: 81, name: "Longer Word Drill I", text: "development organization establishment approximately specifically responsibility management leadership" },
+                    { id: 82, name: "Longer Word Drill II", text: "congratulations entrepreneurship implementation fundamentally infrastructure technological simultaneously" },
+                    { id: 83, name: "Complex Dialogue", text: "The manager stated, \"We need immediate action on Item #4, not the others (3, 5, or 6).\"" },
+                    { id: 84, name: "Financial Report Snippet", text: "Net profit rose to $1.45B ($3.12 per share), an increase of 12% over the prior period." },
+                    { id: 85, name: "Paragraph with Density I", text: "The fundamental challenge in developing adaptive algorithms lies in accurately predicting user behavior while maintaining computational efficiency across heterogeneous hardware platforms." },
+                    { id: 86, name: "Paragraph with Density II", text: "Interoperability between legacy systems and modern cloud architectures often requires complex APIs, secure tunnels, and meticulous data schema transformation policies." },
+                    { id: 87, name: "Academic Citation Style", text: "Smith, J. (2020). The Future of Work. Journal of Technology, 45(2), 112-135. DOI: 10.1080/01234567.2020.1234567" },
+                    { id: 88, name: "Programming Concepts", text: "A linked list differs from an array; it uses pointers, or references, to connect non-contiguous data elements in memory." },
+                    { id: 89, name: "Data Formatting", text: "Date: 2023-10-14T17:00:00Z | Session ID: XGH-921-ABC-345 | Status: PROCESSING" },
+                    { id: 90, name: "Historical Dates", text: "The Renaissance period spanned roughly from the 14th century (c. 1300) to the 16th century (c. 1600) in Europe." },
+                    { id: 91, name: "Mixed Punctuation III", text: "Wait—is that a period or a comma? It's a question mark! And an exclamation point!" },
+                    { id: 92, name: "Advanced Adjectives", text: "meticulous, indispensable, ubiquitous, paradoxical, quintessential, pragmatic, synergistic, ephemeral, poignant." },
+                    { id: 93, name: "Mathematical Equation", text: "If $E = mc^2$ and $c = 3 \times 10^8$ m/s, then $E$ is proportional to mass $m$." },
+                    { id: 94, name: "Currency Conversion", text: "The conversion rate is $1$ USD to $0.85$ EUR, so $\$100.00 = \text{€}85.00$ plus a $2\%$ fee." },
+                    { id: 95, name: "IT Support Text", text: "Check the firewall settings (ports 80, 443, 22) and ensure the DNS resolution is working correctly (8.8.8.8)." },
+                    { id: 96, name: "Descriptive Prose I", text: "The fog rolled in silently, a thick, silver blanket obscuring the jagged peaks of the snow-capped mountains in the distance." },
+                    { id: 97, name: "Descriptive Prose II", text: "She felt the chill of the morning air, pulling her jacket tighter as she walked towards the bustling, early-morning cafe." },
+                    { id: 98, name: "Abstract Concept", text: "Paradoxically, the drive for ultimate efficiency often introduces unexpected complexity and latent dependencies into the overall architecture." },
+                    { id: 99, name: "Preparation Sentence", text: "This final stage is designed to consolidate all the mid-level skills you have acquired, including speed and accuracy with complex symbols." },
+                    { id: 100, name: "Final Mid-level Test", text: "Efficient communication is crucial; therefore, please ensure all future documents are formatted correctly, including proper use of semicolons, colons, quotation marks, and all necessary figures and data points." },
+                ]
+            },
+            pro: {
+                title: "Pro Vibe",
+                description: "Master technical code, programming syntax, and symbol repetition for peak efficiency and professional error-free coding/typing.",
+                stages: [
+                    { id: 101, name: "Brackets and Parentheses I", text: "([{}]) ([{}]) ([{}]) ( ( [ [ { { } } ] ] ) ) { [ ( ) ] } { } [ ] ( )" },
+                    { id: 102, name: "JavaScript Function I", text: "function calculateArea(r) { return Math.PI * (r ** 2); } console.log(calculateArea(5));" },
+                    { id: 103, name: "Python Loop & F-string", text: "for i in range(10): if i % 2 == 0: print(f\"Even: {i}\") else: continue" },
+                    { id: 104, name: "Comparison and Logic", text: "if (a === b && c !== d) { return e || f; } else { throw new Error('Condition failed.'); }" },
+                    { id: 105, name: "HTML Structure", text: `<nav id="main-nav"><a href="/home">Home</a><a href="/about">About</a></nav>` },
+                    { id: 106, name: "Array Mapping (JS)", text: "const ids = users.map(u => ({ id: u.id, name: u.name.toUpperCase() }));" },
+                    { id: 107, name: "CSS Selectors and Rules", text: ".container > .item:hover, #header h1:first-child { color: #fff; margin-top: 15px !important; line-height: 1.5; }" },
+                    { id: 108, name: "Python Dictionary Access", text: "config['settings']['max_retries'] = 5; if config['debug']: log('Debug mode active');" },
+                    { id: 109, name: "TypeScript Interface", text: "interface User { id: number; username: string; active: boolean; }; const admin: User = { id: 1, username: 'root', active: true };" },
+                    { id: 110, name: "JSON Data Structure I", text: '{ "user": { "id": 1, "status": "active", "roles": ["admin", "editor"], "settings": null } }' },
+                    { id: 111, name: "Ternary Operator (JS)", text: "const state = isActive ? 'enabled' : 'disabled'; return { ...config, state };" },
+                    { id: 112, name: "Decorators (Python)", text: "@app.route('/users/<int:user_id>', methods=['GET']) def get_user(user_id): return jsonify(user_data[user_id])" },
+                    { id: 113, name: "SQL JOIN Query", text: "SELECT o.order_id, c.name FROM orders o JOIN customers c ON o.customer_id = c.id WHERE o.total > 100.00;" },
+                    { id: 114, name: "Variable Declaration", text: "let count = 0; const PI = 3.14159; var oldVar = 'deprecated';" },
+                    { id: 115, name: "Promises/Async", text: "const data = await fetch('/api/user').then(res => res.json()).catch(err => ({ error: err.message }));" },
+                    { id: 116, name: "Method Chaining", text: "data.filter(i => i.active).sort((a, b) => b.score - a.score).slice(0, 5);" },
+                    { id: 117, name: "Import Statements", text: "import { Component, OnInit } from '@angular/core'; import * as THREE from 'three';" },
+                    { id: 118, name: "CSS Grid Definition", text: ".grid-layout { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }" },
+                    { id: 119, name: "Try/Catch/Finally Block", text: "try { await callApi(); } catch (e) { console.error('API failed:', e.message); } finally { setStatus('idle'); log('complete'); }" },
+                    { id: 120, name: "RegEx Pattern", text: "const emailRegex = /^([a-zA-Z0-9._%+-]+)@([a-zA-Z0-9.-]+)\\.([a-zA-Z]{2,})$/;" },
+                    { id: 121, name: "Python List Comprehension", text: "squares = [x**2 for x in range(15) if x % 3 == 0]; print(squares);" },
+                    { id: 122, name: "Inline SVG", text: `<svg width="24" height="24" viewBox="0 0 24 24"><path d="M12 2L2 22h20L12 2z"/></svg>` },
+                    { id: 123, name: "HTTP Headers", text: "Content-Type: application/json; Authorization: Bearer <token-string-here>; Cache-Control: no-cache" },
+                    { id: 124, name: "Arrow Function Syntax", text: "const filter = (arr, fn) => arr.filter(fn); console.log(filter(nums, n => n > 10));" },
+                    { id: 125, name: "React Component Snippet", text: "const [count, setCount] = useState(0); return (<button onClick={() => setCount(c => c + 1)}>{count}</button>);" },
+                    { id: 126, name: "Date Formatting", text: "const date = new Date().toISOString().split('T')[0]; console.log(`Today is ${date}.`);" },
+                    { id: 127, name: "HTML Input Attributes", text: `<input type="email" name="user-email" required minlength="8" placeholder="Enter email address...">` },
+                    { id: 128, name: "Python Classes", text: "class Animal: def __init__(self, name): self.name = name; def speak(self): print(f'{self.name} makes a sound.')" },
+                    { id: 129, name: "Type Assertion (TS)", text: "const value = data as unknown as ApiResult[]; if (Array.isArray(value)) { return value; }" },
+                    { id: 130, name: "Object Destructuring (JS)", text: "const { username, email, settings: { theme, language } } = userProfile;" },
+                    { id: 131, name: "Spread Syntax", text: "const newArray = [...oldArray, newItem]; const updatedUser = { ...user, isActive: true };" },
+                    { id: 132, name: "CSS Custom Properties", text: ":root { --primary-color: #00bcd4; --font-size-lg: 1.5rem; } h1 { color: var(--primary-color); }" },
+                    { id: 133, name: "PHP Variable Syntax", text: `if ($user->is_logged_in()) { echo "Welcome, " . $user->name . "!"; }` },
+                    { id: 134, name: "Comment Blocks", text: "/** * @param {string} url The API endpoint * @returns {Promise<object>} JSON data */" },
+                    { id: 135, name: "SQL Query I", text: "SELECT user_id, email, created_at FROM users WHERE status = 'active' AND last_login > '2023-01-01' LIMIT 10;" },
+                    { id: 136, name: "SQL Query II", text: "INSERT INTO products (name, price, stock) VALUES ('Laptop', 1200.00, 50);" },
+                    { id: 137, name: "Terminal Command I", text: "git commit -m \"feat: add new feature #134\" && npm run deploy" },
+                    { id: 138, name: "Terminal Command II", text: "ssh user@192.168.1.1 'sudo systemctl restart nginx' > /dev/null 2>&1" },
+                    { id: 139, name: "Configuration File Snippet", text: "[server] host = 127.0.0.1; port = 8080; debug = true; max_connections = 100;" },
+                    { id: 140, name: "Class Definition (TS/JS)", text: "class Car { constructor(make) { this.make = make; } start() { console.log(`${this.make} started.`); } };" },
+                    { id: 141, name: "Switch Statement", text: "switch (statusCode) { case 200: return 'OK'; case 404: return 'Not Found'; default: return 'Error'; }" },
+                    { id: 142, name: "Angular Component Snippet", text: "@Component({ selector: 'app-list', template: '<ul><li *ngFor=\"let item of items\">{{ item.name }}</li></ul>' })" },
+                    { id: 143, name: "Python Function Signature", text: "def process_data(data: list[dict], threshold: float) -> list[str]: pass" },
+                    { id: 144, name: "Error Handling Setup", text: "if (!response.ok) { throw new Error(`HTTP error! Status: ${response.status}`); }" },
+                    { id: 145, name: "Map Iteration", text: "for (const [key, value] of map.entries()) { console.log(`${key}: ${value}`); }" },
+                    { id: 146, name: "Lambda Function (Python)", text: "sort_key = lambda x: (x['status'], -x['priority']); sorted_list = sorted(data, key=sort_key);" },
+                    { id: 147, name: "CSS Media Query", text: "@media (max-width: 768px) { .header { font-size: 1.2rem; padding: 10px 0; } }" },
+                    { id: 148, name: "Advanced JSON Structure", text: '{"products": [{"id": 1, "qty": 5}, {"id": 2, "qty": 10}], "total": 15, "is_valid": true}' },
+                    { id: 149, name: "Final Prep Line", text: "This challenging test will assess your proficiency across multiple programming syntax styles and complex symbol sequences for ultimate typing mastery." },
+                    { id: 150, name: "Final Pro Test", text: "await db.collection('transactions').where('status', '==', 'pending').limit(10).get().then(snapshot => snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), time: Date.now() })));" },
+                ]
+            }
+        };
+
+
+        // --- UTILITY FUNCTIONS ---
+
+        function getThemeClasses() {
+            return themes[state.currentTheme] || themes.dark;
+        }
+        
+        /**
+         * Clears the main app container and injects new content.
+         * @param {HTMLElement} content 
+         */
+        function renderView(content) {
+            const app = document.getElementById('app');
+            const theme = getThemeClasses();
+            
+            // Apply main theme classes to the body
+            document.body.className = `min-h-screen ${theme.bg} ${theme.text} transition-colors duration-500`;
+
+            app.innerHTML = '';
+            app.appendChild(content);
+        }
+
+        /**
+         * Calculates WPM, Accuracy, and Errors based on current state.
+         * @returns {{wpm: number, accuracy: number, errorCount: number}}
+         */
+        function calculateStats() {
+            const { targetText, typedText, startTime, endTime } = state;
+            
+            if (!startTime || typedText.length === 0) {
+                return { wpm: 0, accuracy: 100, errorCount: 0 };
+            }
+
+            const elapsedSeconds = (endTime ? endTime - startTime : Date.now() - startTime) / 1000;
+            let correctChars = 0;
+            
+            for (let i = 0; i < typedText.length; i++) {
+                if (typedText[i] === targetText[i]) {
+                    correctChars++;
+                }
+            }
+
+            const totalCharsTyped = typedText.length;
+            const errorCount = totalCharsTyped - correctChars;
+            
+            // WPM calculation: (Correct Characters / 5) / (Elapsed Minutes)
+            const elapsedMinutes = elapsedSeconds / 60;
+            const wpm = elapsedMinutes > 0 ? Math.round((correctChars / 5) / elapsedMinutes) : 0;
+            
+            // Accuracy calculation: (Correct Chars / Total Chars Typed) * 100
+            const accuracy = totalCharsTyped > 0 ? ((correctChars / totalCharsTyped) * 100).toFixed(1) : 100;
+
+            return { wpm, accuracy: parseFloat(accuracy), errorCount };
+        }
+
+        // --- RENDERERS ---
+
+        /** Renders the settings view for theme selection. */
+        function renderSettings() {
+            const theme = getThemeClasses();
+            const container = document.createElement('div');
+            container.className = `flex flex-col items-center justify-center min-h-screen ${theme.bg} ${theme.text} p-4`;
+            
+            // Dynamically generate theme options, including the new ones
+            const themeOptionsHtml = Object.keys(themes).map(key => {
+                const t = themes[key];
+                const isCurrent = state.currentTheme === key;
+                return `
+                    <button data-theme="${key}" 
+                        class="theme-select-btn w-full p-4 text-left rounded-xl shadow-lg border-2 ${isCurrent ? `${t.border} border-4` : 'border-gray-700/50'} ${t.card} transition duration-300 hover:scale-[1.02]">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xl font-bold ${t.primary}">${t.name}</span>
+                            <div class="w-6 h-6 rounded-full ${t.accentBg} ${t.accentText} border-4 border-white/50"></div>
+                        </div>
+                    </button>
+                `;
+            }).join('');
+
+
+            container.innerHTML = `
+                <div class="${theme.card} p-8 rounded-2xl shadow-2xl max-w-xl w-full">
+                    <h1 class="text-4xl font-extrabold mb-4 ${theme.primary}">App Settings</h1>
+                    <p class="mb-8 ${theme.secondary}">Select a visual theme for the application to match your vibe.</p>
+
+                    <div class="space-y-4">
+                        ${themeOptionsHtml}
+                    </div>
+
+                    <button id="back-to-menu-btn" class="mt-8 w-full py-3 ${theme.accentBg} ${theme.accentText} font-bold rounded-xl hover:opacity-90 transition duration-200 shadow-lg">
+                        <span class="text-xl mr-2">←</span> Back to Main Menu
+                    </button>
+                </div>
+            `;
+            
+            container.querySelector('#back-to-menu-btn').addEventListener('click', () => {
+                state.currentView = 'select';
+                renderApp();
+            });
+
+            container.querySelectorAll('.theme-select-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    state.currentTheme = e.currentTarget.dataset.theme;
+                    renderSettings(); // Re-render settings to show active theme
+                });
+            });
+
+            renderView(container);
+        }
+
+        /**
+         * Renders the main level selection screen.
+         */
+        function renderLevelSelect() {
+            const theme = getThemeClasses();
+            const container = document.createElement('div');
+            container.className = `flex flex-col items-center justify-center min-h-screen ${theme.bg} ${theme.text} p-4`;
+            container.innerHTML = `
+                <header class="w-full max-w-5xl flex justify-end p-4 absolute top-0 right-0">
+                    <button id="settings-btn" class="p-2 ${theme.card} ${theme.secondary} rounded-full hover:bg-gray-700 transition duration-200 shadow-md">
+                        <!-- Icon: Settings Cog -->
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m4.93 19.07 1.41-1.41"/><path d="m17.66 6.34 1.41-1.41"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>
+                </header>
+
+                <h1 class="text-6xl font-extrabold mb-4 ${theme.primary}">Type With Vibe</h1>
+                <p class="text-xl ${theme.secondary} mb-12">Select your typing challenge level to view all 50 stages.</p>
+
+                <div class="grid md:grid-cols-3 gap-8 w-full max-w-5xl" id="level-buttons">
+                    <!-- Buttons injected here -->
+                </div>
+            `;
+            
+            const buttonContainer = container.querySelector('#level-buttons');
+
+            Object.keys(levelTexts).forEach(level => {
+                const data = levelTexts[level];
+                const div = document.createElement('div');
+                div.className = `${theme.card} p-8 rounded-xl shadow-2xl border-t-4 ${theme.border} transform hover:scale-[1.03] transition duration-300 ease-in-out cursor-pointer`;
+                div.innerHTML = `
+                    <h2 class="text-3xl font-bold mb-3 capitalize ${theme.text}">${data.title.replace(' Vibe', '')}</h2>
+                    <p class="${theme.secondary} mb-6 h-12">${data.description.substring(0, 80)}...</p>
+                    <button class="w-full py-3 ${theme.accentBg} ${theme.accentText} font-bold rounded-xl hover:opacity-90 transition duration-200 shadow-lg">
+                        View Stages (50)
+                    </button>
+                `;
+                div.querySelector('button').addEventListener('click', () => {
+                    state.selectedLevel = level;
+                    state.currentView = 'stage_select';
+                    renderApp();
+                });
+                buttonContainer.appendChild(div);
+            });
+            
+            container.querySelector('#settings-btn').addEventListener('click', () => {
+                state.currentView = 'settings';
+                renderApp();
+            });
+
+            renderView(container);
+        }
+
+        /**
+         * Renders the stage selection screen for the current level.
+         */
+        function renderStageSelect() {
+            const theme = getThemeClasses();
+            const level = state.selectedLevel;
+            const levelData = levelTexts[level];
+
+            const container = document.createElement('div');
+            container.className = `min-h-screen p-4 md:p-8 ${theme.bg} ${theme.text}`;
+            container.innerHTML = `
+                <div class="flex justify-between items-center mb-8 max-w-6xl mx-auto">
+                    <!-- Back to Level Button (TOP LEFT) -->
+                    <button id="back-to-level-select" class="px-4 py-2 ${theme.card} ${theme.secondary} font-semibold rounded-xl hover:bg-gray-700/50 transition duration-200 shadow-md">
+                        <span class="text-xl mr-1">←</span> Back to Levels
+                    </button>
+                    <!-- Header -->
+                    <div class="text-center flex-1 -ml-24 md:ml-0">
+                         <h1 class="text-4xl md:text-5xl font-extrabold ${theme.primary} capitalize">${levelData.title} Stages</h1>
+                    </div>
+                    <div><!-- Spacer --></div>
+                </div>
+                
+                <p class="text-center ${theme.secondary} mb-8 max-w-2xl mx-auto">${levelData.description}</p>
+                
+                <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full max-w-6xl mx-auto" id="stage-grid">
+                    <!-- Stage buttons injected here -->
+                </div>
+            `;
+            
+            container.querySelector('#back-to-level-select').addEventListener('click', () => {
+                state.currentView = 'select';
+                renderApp();
+            });
+
+            const stageGrid = container.querySelector('#stage-grid');
+            levelData.stages.forEach(stage => {
+                const div = document.createElement('div');
+                div.className = `${theme.card} p-4 rounded-xl shadow-xl border-t-4 ${theme.border} transform hover:scale-[1.02] transition duration-300 ease-in-out cursor-pointer`;
+                div.innerHTML = `
+                    <h2 class="text-lg font-bold mb-1 ${theme.text}">Stage ${stage.id}: ${stage.name}</h2>
+                    <p class="${theme.secondary} mb-4 italic text-xs h-8 overflow-hidden">${stage.text.substring(0, 50)}...</p>
+                    <button class="w-full py-2 ${theme.accentBg} ${theme.accentText} font-bold rounded-lg text-sm hover:opacity-90 transition duration-200 shadow-lg">
+                        Start Stage
+                    </button>
+                `;
+                div.querySelector('button').addEventListener('click', () => {
+                    state.selectedStage = stage;
+                    state.targetText = stage.text;
+                    resetTest(); 
+                    state.currentView = 'typing';
+                    renderApp();
+                });
+                stageGrid.appendChild(div);
+            });
+
+            renderView(container);
+        }
+
+        /**
+         * Renders the colored text display based on current typing state.
+         */
+        function renderTextDisplay() {
+            const theme = getThemeClasses();
+            const { targetText, typedText } = state;
+            const textDisplayDiv = document.getElementById('text-display-content');
+
+            if (!textDisplayDiv) return;
+
+            // Set the cursor color dynamically based on the current theme
+            document.documentElement.style.setProperty('--cursor-color', theme.cursor);
+
+
+            let htmlContent = '';
+            
+            for (let i = 0; i < targetText.length; i++) {
+                const char = targetText[i];
+                let className = `${theme.secondary}`; // Upcoming
+                const isCurrentChar = i === typedText.length;
+                let displayChar = char === ' ' ? '\u00a0' : char; // Use non-breaking space for layout consistency
+
+                if (i < typedText.length) {
+                    // Typed:
+                    if (typedText[i] === char) {
+                        className = `${theme.correct}`;
+                    } else {
+                        // Incorrect character
+                        className = `${theme.error} rounded-sm`; 
+                    }
+                } else if (isCurrentChar) {
+                    // Current character (cursor position)
+                    className = `${theme.text}`;
+                }
+
+                if (isCurrentChar && state.status !== 'finished') {
+                    // Apply cursor styling and color based on theme
+                    className += ' current-char';
+                    const cursorStyle = document.createElement('style');
+                    cursorStyle.textContent = `.current-char { border-left-color: ${theme.cursor}; }`;
+                    textDisplayDiv.appendChild(cursorStyle);
+                }
+
+                htmlContent += `<span class="char-span transition-colors duration-50 ${className}">${displayChar}</span>`;
+            }
+
+            textDisplayDiv.innerHTML = htmlContent;
+
+            // Scroll Logic to keep cursor in view
+            const cursor = textDisplayDiv.querySelector('.current-char');
+            if (cursor) {
+                const containerRect = textDisplayDiv.getBoundingClientRect();
+                const cursorRect = cursor.getBoundingClientRect();
+
+                // Calculate vertical position relative to the container
+                const relativeCursorY = cursorRect.top - containerRect.top + textDisplayDiv.scrollTop;
+
+                const scrollThreshold = containerRect.height * 0.75; // Scroll when cursor passes 75% height
+
+                if (relativeCursorY > scrollThreshold) {
+                    // Scroll just enough to bring the cursor back to the top 25% area
+                    const scrollAmount = relativeCursorY - (containerRect.height * 0.25);
+                    textDisplayDiv.scrollTop = scrollAmount;
+                }
+            } else if (typedText.length === 0) {
+                 // Reset scroll when starting a new test
+                textDisplayDiv.scrollTop = 0;
+            }
+        }
+
+        /**
+         * Renders the typing test screen.
+         */
+        function renderTypingTest() {
+            const theme = getThemeClasses();
+            const level = state.selectedLevel;
+            const stage = state.selectedStage;
+            const stats = calculateStats();
+            
+            let statusColor = `${theme.secondary}`;
+            if (state.status === 'typing') statusColor = 'text-yellow-400';
+            if (state.status === 'finished') statusColor = `${theme.correct}`;
+
+            const container = document.createElement('div');
+            container.className = `min-h-screen p-4 md:p-8 ${theme.bg} ${theme.text}`;
+            container.innerHTML = `
+                <h1 class="text-4xl font-extrabold mb-2 text-center ${theme.primary} capitalize">${levelTexts[level].title.replace(' Vibe', '')}: ${stage.name}</h1>
+                <p class="text-center ${theme.secondary} mb-8 max-w-2xl mx-auto">${levelTexts[level].description}</p>
+                
+                <div class="max-w-4xl mx-auto">
+                    <!-- Stats Header -->
+                    <div class="flex justify-between items-center mb-4 p-4 ${theme.card} rounded-lg shadow-inner">
+                        <div class="text-lg font-semibold">WPM: <span id="wpm-stat" class="${theme.primary}">${stats.wpm}</span></div>
+                        <div class="text-lg font-semibold">Accuracy: <span id="accuracy-stat" class="${theme.primary}">${stats.accuracy}%</span></div>
+                        <div class="text-lg font-semibold">Status: <span id="status-stat" class="font-bold ${statusColor}">${state.status.toUpperCase()}</span></div>
+                    </div>
+
+                    <!-- Text Display Area -->
+                    <div id="text-display-content" class="text-lg md:text-xl font-mono p-4 ${theme.card} rounded-lg shadow-xl mb-6 leading-snug border border-gray-700/50 h-[10rem] overflow-x-hidden overflow-y-scroll scrollbar-hide">
+                        <!-- Text injected by renderTextDisplay -->
+                    </div>
+                    
+                    <!-- NO KEYBOARD HERE -->
+
+                    <div id="test-info-area" class="text-center mt-6">
+                        ${state.status === 'ready' ? 
+                            `<p class="text-xl ${theme.secondary} animate-pulse">Press any key to start the test...</p>` : 
+                            ''
+                        }
+                        ${state.status === 'finished' ? 
+                            `
+                            <div class="mt-8 p-6 bg-green-900/50 border border-green-700 rounded-xl shadow-2xl">
+                                <h3 class="text-3xl font-bold text-green-400 mb-4">Stage Complete! 🚀</h3>
+                                <div class="flex justify-around items-center space-x-4 text-center">
+                                    <div class="p-4 bg-green-800/70 rounded-lg flex-1 transition duration-300">
+                                        <p class="text-5xl font-extrabold text-white">${stats.wpm}</p>
+                                        <p class="text-sm text-green-200 mt-1">WPM</p>
+                                    </div>
+                                    <div class="p-4 bg-green-800/70 rounded-lg flex-1 transition duration-300">
+                                        <p class="text-5xl font-extrabold text-white">${stats.accuracy}%</p>
+                                        <p class="text-sm text-green-200 mt-1">Accuracy</p>
+                                    </div>
+                                    <div class="p-4 bg-green-800/70 rounded-lg flex-1 transition duration-300">
+                                        <p class="text-5xl font-extrabold text-white">${stats.errorCount}</p>
+                                        <p class="text-sm text-green-200 mt-1">Errors</p>
+                                    </div>
+                                </div>
+                                <button id="choose-next-stage" class="mt-6 w-full py-3 ${theme.accentBg} ${theme.accentText} font-bold rounded-xl hover:opacity-90 transition duration-200 shadow-md">
+                                    Choose Next Stage
+                                </button>
+                            </div>
+                            ` : 
+                            ''
+                        }
+                    </div>
+
+                    <div class="flex justify-center space-x-4 mt-8">
+                        <button id="change-stage-btn" class="px-6 py-3 ${theme.card} ${theme.text} font-semibold rounded-xl hover:bg-gray-700/50 transition duration-200 shadow-md">
+                            Change Stage
+                        </button>
+                        <button id="retry-stage-btn" class="px-6 py-3 bg-red-600 text-white font-semibold rounded-xl hover:bg-red-700 transition duration-200 shadow-md">
+                            Retry Stage
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            renderView(container);
+            
+            // Re-render text display immediately after mounting
+            renderTextDisplay();
+
+            // Attach event listeners
+            document.getElementById('change-stage-btn').addEventListener('click', () => {
+                state.currentView = 'stage_select';
+                renderApp();
+            });
+            document.getElementById('retry-stage-btn').addEventListener('click', () => {
+                resetTest();
+                renderApp(); // Re-render to update status/text
+            });
+
+            if (state.status === 'finished') {
+                document.getElementById('choose-next-stage').addEventListener('click', () => {
+                    state.currentView = 'stage_select';
+                    renderApp();
+                });
+            }
+        }
+        
+        // --- CORE LOGIC ---
+        
+        /**
+         * Main function to start or restart the typing test state.
+         */
+        function resetTest() {
+            state.typedText = '';
+            state.startTime = null;
+            state.endTime = null;
+            state.status = 'ready';
+        }
+
+        /**
+         * Updates the stats section of the typing test view.
+         */
+        function updateStats() {
+            const theme = getThemeClasses();
+            const stats = calculateStats();
+            const wpmEl = document.getElementById('wpm-stat');
+            const accuracyEl = document.getElementById('accuracy-stat');
+            const statusEl = document.getElementById('status-stat');
+            
+            if (wpmEl) wpmEl.textContent = stats.wpm;
+            if (accuracyEl) accuracyEl.textContent = `${stats.accuracy}%`;
+
+            if (statusEl) {
+                statusEl.textContent = state.status.toUpperCase();
+                statusEl.className = 'font-bold ' + (
+                    state.status === 'typing' ? 'text-yellow-400' : 
+                    state.status === 'finished' ? theme.correct : 
+                    theme.secondary
+                );
+            }
+            
+            // If the test finished, re-render the whole test view to show the results box
+            if (state.status === 'finished') {
+                renderTypingTest();
+            }
+        }
+
+        /**
+         * Global keydown handler for typing input.
+         * @param {KeyboardEvent} event 
+         */
+        function handleKeydown(event) {
+            if (state.currentView !== 'typing' || state.status === 'finished') return;
+
+            // Prevent default browser shortcuts when typing (e.g., F5, Ctrl+R, space scrolls)
+            if (event.key !== 'F5' && event.key !== 'F12' && !event.ctrlKey && !event.altKey && !event.metaKey) {
+                event.preventDefault();
+            }
+
+            const key = event.key;
+
+            if (key === 'Backspace') {
+                if (state.typedText.length > 0) {
+                    state.typedText = state.typedText.slice(0, -1);
+                    renderTextDisplay();
+                    updateStats();
+                }
+            } else if (key.length === 1) {
+                // 1. Start the test if it's ready
+                if (state.status === 'ready') {
+                    state.startTime = Date.now();
+                    state.status = 'typing';
+                    // Clear "Press any key to start" message
+                    const infoArea = document.getElementById('test-info-area');
+                    if(infoArea) infoArea.innerHTML = '';
+                    updateStats(); // Update status display
+                }
+
+                // 2. Allow typing 
+                if (state.typedText.length < state.targetText.length) {
+                    state.typedText += key;
+                    
+                    // Check for completion
+                    if (state.typedText.length === state.targetText.length) {
+                        state.endTime = Date.now();
+                        state.status = 'finished';
+                        
+                        // Mock saving score
+                        console.log("MOCK DB: Saving score data...");
+                    }
+                    
+                    renderTextDisplay();
+                    updateStats();
+                }
+            }
+        }
+
+        /**
+         * Router: Calls the correct renderer based on the current state view.
+         */
+        function renderApp() {
+            switch (state.currentView) {
+                case 'select':
+                    renderLevelSelect();
+                    break;
+                case 'stage_select':
+                    renderStageSelect();
+                    break;
+                case 'typing':
+                    renderTypingTest();
+                    break;
+                case 'settings':
+                    renderSettings();
+                    break;
+                default:
+                    renderLevelSelect();
+            }
+        }
+
+        // --- INITIALIZATION ---
+        
+        window.onload = () => {
+            // Attach the global keydown listener once the DOM is ready
+            document.addEventListener('keydown', handleKeydown);
+            renderApp();
+        };
+
+    </script>
+</body>
+</html>
